@@ -1,9 +1,22 @@
 import boto3
 import sys
 
-# Connect to LocalStack S3 and SQS endpoints
-s3 = boto3.client('s3', endpoint_url='http://localhost:4566', region_name='us-east-1')
-sqs = boto3.client('sqs', endpoint_url='http://localhost:4566', region_name='us-east-1')
+# Pass mock credentials so boto3 doesn't throw NoCredentialsError in CI
+s3 = boto3.client(
+    's3',
+    endpoint_url='http://localhost:4566',
+    region_name='us-east-1',
+    aws_access_key_id='test',
+    aws_secret_access_key='test'
+)
+
+sqs = boto3.client(
+    'sqs',
+    endpoint_url='http://localhost:4566',
+    region_name='us-east-1',
+    aws_access_key_id='test',
+    aws_secret_access_key='test'
+)
 
 def test_resources():
     print("🔎 Running Infrastructure Integration Tests...\n")
