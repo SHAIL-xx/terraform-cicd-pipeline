@@ -1,0 +1,63 @@
+name: Terraform CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  terraform-ci-cd:
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. Checkout repository code
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    # 2. Install Terraform CLI
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: "1.6.0"
+
+    # 3. Format & Validate Code
+    - name: Terraform Format Check
+      run: terraform fmt -check
+
+    - name: Terraform Init
+      run: terraform init
+
+    - name: Terraform Validate
+      run: terraform validate
+
+    # 4. Spin up LocalStack Container inside GitHub Runner
+    - name: Start LocalStack
+      run: |
+        docker run -d \
+          --name localstack \
+          -p 4566:4566 \
+          -p 4510-4559:4510-4559 \
+          localstack/localstack:3.8.0
+
+        echo "Waiting for LocalStack to be ready..."
+        until curl -s http://localhost:4566/_localstack/health | grep -q '"s3": "available"'; do
+          sleep 2
+        done
+        echo "LocalStack is online!"
+
+    # 5. Apply Infrastructure
+    - name: Terraform Apply
+      run: terraform apply -auto-approve
+
+    # 6. Run Integration Tests
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install Dependencies
+      run: pip install boto3
+
+    - name: Run Integration Tests
+      run: python test_infra.py
