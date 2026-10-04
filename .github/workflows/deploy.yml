@@ -24,17 +24,19 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      - name: Start LocalStack (Community)
-        uses: LocalStack/setup-localstack@v0.2.3
-        with:
-          # Force the community image to bypass the Pro license requirement
-          image-tag: 'latest'
-          install-awslocal: 'true'
-        env:
-          # Explicitly set the core image to the open-source version
-          LOCALSTACK_IMAGE_NAME: localstack/localstack:latest
-          # Bypass the pro check explicitly
-          LOCALSTACK_ACKNOWLEDGE_ACCOUNT_REQUIREMENT: "1"
+      - name: Start LocalStack (Token-Free Version)
+        run: |
+          # Pin to version 3.4.0 to completely bypass the new account requirement
+          docker run -d -p 4566:4566 \
+            -e SERVICES=s3,dynamodb,ec2,iam,sts \
+            -e DEFAULT_REGION=us-east-1 \
+            --name localstack localstack/localstack:3.4.0
+          
+          echo "Waiting for LocalStack to boot..."
+          until curl -s http://localhost:4566/_localstack/health | grep -q "\"services\":"; do
+            sleep 2
+          done
+          echo "LocalStack is ready!"
 
       - name: Terraform Init
         run: terraform init
