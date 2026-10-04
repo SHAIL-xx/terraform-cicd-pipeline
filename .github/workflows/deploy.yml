@@ -9,6 +9,28 @@ jobs:
   terraform:
     name: "Terraform Apply"
     runs-on: ubuntu-latest
+    
+    # 1. Spin up LocalStack in the background
+    services:
+      localstack:
+        image: localstack/localstack:latest
+        env:
+          SERVICES: s3,dynamodb,ec2,iam,sts
+          DEFAULT_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+        ports:
+          - 4566:4566
+          - 4510-4559:4510-4559
+
+    # 2. Force Terraform to use LocalStack instead of real AWS
+    env:
+      AWS_ACCESS_KEY_ID: "test"
+      AWS_SECRET_ACCESS_KEY: "test"
+      AWS_DEFAULT_REGION: "us-east-1"
+      AWS_REGION: "us-east-1"
+      AWS_ENDPOINT_URL: "http://localhost:4566"
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -16,12 +38,13 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      - name: Configure Mock AWS Credentials for LocalStack
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID || 'test' }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY || 'test' }}
-          aws-region: us-east-1
+      - name: Wait for LocalStack
+        run: |
+          echo "Waiting for LocalStack..."
+          until curl -s http://localhost:4566/_localstack/health | grep -q "\"services\":"; do
+            sleep 2
+          done
+          echo "LocalStack is ready."
 
       - name: Terraform Init
         run: terraform init
